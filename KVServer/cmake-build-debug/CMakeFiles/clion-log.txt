@@ -1,0 +1,19 @@
+/home/vishal/Downloads/clion-2021.2.1/bin/cmake/linux/bin/cmake -DCMAKE_BUILD_TYPE=Debug -DCMAKE_DEPENDS_USE_COMPILER=FALSE -G "CodeBlocks - Unix Makefiles" /home/vishal/grpc/grpc/examples/cpp/KVServer
+CMake Error at /home/vishal/grpc/grpc/examples/cpp/cmake/common.cmake:101 (find_package):
+  Could not find a package configuration file provided by "Protobuf" with any
+  of the following names:
+
+    ProtobufConfig.cmake
+    protobuf-config.cmake
+
+  Add the installation prefix of "Protobuf" to CMAKE_PREFIX_PATH or set
+  "Protobuf_DIR" to a directory containing one of the above files.  If
+  "Protobuf" provides a separate development package or SDK, be sure it has
+  been installed.
+Call Stack (most recent call first):
+  CMakeLists.txt:6 (include)
+
+
+-- Configuring incomplete, errors occurred!
+See also "/home/vishal/grpc/grpc/examples/cpp/KVServer/cmake-build-debug/CMakeFiles/CMakeOutput.log".
+See also "/home/vishal/grpc/grpc/examples/cpp/KVServer/cmake-build-debug/CMakeFiles/CMakeError.log".
