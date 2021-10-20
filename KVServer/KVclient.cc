@@ -136,7 +136,8 @@ int main(int argc, char** argv) {
             greeter.GET(user);
         } else if(a==2)
         {
-            s1="gvvgv",s2="jnhjbhj";
+            std::cin>>s1>>s2;
+            std::cout<<user<<std::endl;
             greeter.PUT(s1,s2);
         } else if(a==3)
         {

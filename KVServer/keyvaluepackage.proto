@@ -35,6 +35,7 @@ message GetKeyRequest{
 message PutKeyRequest{
   string key=1;
   string value=2;
+
 }
 message DelKeyRequest{
   string key=1;

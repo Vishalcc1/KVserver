@@ -67,9 +67,10 @@ private:
     // Class encompasing the state and logic needed to serve a request.
     class CallData {
     public:
-        CallData(KV::AsyncService * service, ServerCompletionQueue * cq)
+        CallData(KV::AsyncService * service, ServerCompletionQueue * cq, int type)
         : service_(service), responder_(&ctx_), cq_(cq), status_(CREATE)
         {
+            type_of_request = type;
             // Invoke the serving logic right away.
             Proceed();
 
@@ -83,42 +84,54 @@ private:
                 // the tag uniquely identifying the request (so that different CallData
                 // instances can serve different requests concurrently), in this case
                 // the memory address of this CallData instance.
-
-                service_->RequestGET(&ctx_,&request_get,&responder_,cq_,cq_,this);
-                service_->RequestPUT(&ctx_,&request_put,&responder_,cq_,cq_,this);
-                service_->RequestDEL(&ctx_,&request_del,&responder_,cq_,cq_,this);
+                if(type_of_request==0){
+                    service_->RequestGET(&ctx_,&request_get,&responder_,cq_,cq_,this);
+                }else if(type_of_request==1){
+                    service_->RequestPUT(&ctx_,&request_put,&responder_,cq_,cq_,this);
+                }else if(type_of_request==2){
+                    service_->RequestDEL(&ctx_,&request_del,&responder_,cq_,cq_,this);
+                }
 
             }
             else if (status_ == PROCESS) {
 
 
-                int time=20;
+                int time=3;
                 while (time--)
                 {
                     std::cout<<"i m sleep"<<time<<std::endl;
                     sleep(1);
                 }
                 //business logic
-                std::cout<<request_get.key()<<std::endl;
-                if(request_put.key()!="")
+                if(request_get.key()!="")
                 {
-                    // i m put service...
-                }
-                else if(request_get.key()!="")
-                {
+                    new CallData(service_, cq_, 0);
                     // i m get service...
+                    std::cout<<"get"<<std::endl;
 
-                } else
+                }else if(request_put.key()!="")
                 {
-                    // i m del service...
+                    new CallData(service_, cq_, 1);
+                    // i m put service...
+                    std::cout<<"put"<<std::endl;
+                }
+                else
+                {
+                    new CallData(service_, cq_, 2);
+                    // i m del service... n^2
+//                           a
+//                        b   d
+//                        c       c
+
+                    std::cout<<"del"<<std::endl;
 
                 }
-                std::cout<<"1. "<<request_put.key()<<" 2. "<<request_get.key()<<"\n";
+//                std::cout<<"1. "<<request_put.key()<<" 2. "<<request_get.key()<<"\n";
 
-                new CallData(service_, cq_);
+
                 // The actual processing.
                 std::string prefix("Hello ");
-                reply_.set_key(prefix + request_get.key());
+                reply_.set_key(prefix );
 
                 status_ = FINISH;
 
@@ -135,6 +148,7 @@ private:
     private:
         // The means of communication with the gRPC runtime for an asynchronous
         // server.
+        int type_of_request;
         KV::AsyncService* service_;
         // The producer-consumer queue where for asynchronous server notifications.
         ServerCompletionQueue* cq_;
@@ -161,7 +175,9 @@ private:
     void HandleRpcs1(int idx) {
         // Spawn a new CallData instance to serve new clients.
 
-        new CallData(&service_, cq_[idx].get());
+        new CallData(&service_, cq_[idx].get(), 0);
+        new CallData(&service_, cq_[idx].get(), 1);
+        new CallData(&service_, cq_[idx].get(), 2);
         void* tag;  // uniquely identifies a request.
         bool ok;
         while (true) {
