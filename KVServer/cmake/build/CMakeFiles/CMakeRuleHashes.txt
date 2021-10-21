@@ -1,2 +1,0 @@
-# Hashes of file build rules.
-0d2fd8e51a837ea293f466bd0db13660 keyvaluepackage.pb.cc
