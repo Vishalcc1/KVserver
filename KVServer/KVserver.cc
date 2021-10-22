@@ -14,6 +14,8 @@
 #include "keyvaluepackage.grpc.pb.h"
 #include <iterator>
 #include <set>
+#include <list>
+
 std::unordered_map<std::string,std::string> cache;
 using grpc::Server;
 using grpc::ServerAsyncResponseWriter;
@@ -31,6 +33,11 @@ std::mutex door;
 std::unordered_map<std::string,std::pair<int,std::string>> keyFeqValue;
 std::set<std::pair<int,std::string>> feqKeq;
 int NUM_OF_RECORD;
+
+std::mutex m;
+std::list<std::pair<std::string, std::string>> cacheLRU;
+std::unordered_map<std::string, std::list<std::pair<std::string, std::string>>::iterator> cacheLRUMap;
+int cacheLRU_size = 100;
 
 class ServerImpl final {
 public:
@@ -77,6 +84,8 @@ private:
     // Class encompasing the state and logic needed to serve a request.
     class CallDataLRU {
     public:
+
+
         CallDataLRU(KV::AsyncService * service, ServerCompletionQueue * cq, int type)
         : service_(service), responder_(&ctx_), cq_(cq), status_(CREATE)
         {
@@ -84,6 +93,81 @@ private:
             // Invoke the serving logic right away.
             Proceed();
         }
+
+        std::pair<std::string, std::string> get_value(std::string key)
+        {
+            m.lock();
+
+            std::string fetched_value = "";
+
+            if (cacheLRUMap.find(key) == cacheLRUMap.end()) {
+                // cache entry not found. find it from file.
+                fetched_value = "hello";
+
+                // check if the cache is full
+                if (cacheLRU.size() == cacheLRU_size) {
+                    // deleting the least recently used entry which is stored at the last
+                    std::pair<std::string, std::string> last = cacheLRU.back();
+                    cacheLRU.pop_back();
+
+                    // deleting the map entry
+                    cacheLRUMap.erase(last.first);
+                }
+
+            } else {
+                fetched_value = (*cacheLRUMap[key]).second;
+                cacheLRU.erase(cacheLRUMap[key]);
+            }
+        
+            // putting the recently accessed key-value pair at the front
+            std::pair<std::string, std::string> key_val(key, fetched_value);
+            cacheLRU.push_front(key_val);
+            cacheLRUMap[key] = cacheLRU.begin();
+
+            m.unlock();
+
+            return key_val;
+        }
+        
+        void put_key_value(string key, string value)
+        {
+            m.lock();
+
+            std::pair<std::string, std::string> key_val(key, value);
+
+            // check if the cache is full
+            if (cacheLRU.size() == cacheLRU_size) {
+                // deleting the least recently used entry which is stored at the last
+                std::pair<std::string, std::string> last = cacheLRU.back();
+                cacheLRU.pop_back();
+
+                // deleting the map entry
+                cacheLRUMap.erase(last.first);
+            }
+        
+            // putting the recently accessed key-value pair at the front
+            cacheLRU.push_front(key_val);
+            cacheLRUMap[key] = cacheLRU.begin();
+
+            // Store the key-value pair in a file
+
+            m.unlock();
+        }
+
+        void delete_key_value(string key)
+        {
+            m.lock();
+            if (cacheLRUMap.find(key) != cacheLRUMap.end()) {
+                cacheLRU.erase(cacheLRUMap[key]);
+                cacheLRUMap.erase(key);
+            } 
+
+            // delete key-value entry from the file
+            m.unlock();
+        }
+
+
+        
         void Proceed() {
             if (status_ == CREATE) {
                 // Make this instance progress to the PROCESS state.
@@ -115,12 +199,28 @@ private:
                 if(request_get.key()!="")
                 {
                     new CallDataLRU(service_, cq_, 0);
+
+                    std::string requested_key = request_get.key();
+
+                    std::pair<std::string, std::string> fetched_key_value = get_value(requested_key);
+
+                    reply_.set_key(fetched_key_value.first);
+                    reply_.set_value(fetched_key_value.second);
+
                     // i m get service...
                     std::cout<<"get"<<std::endl;
 
                 }else if(request_put.key()!="")
                 {
                     new CallDataLRU(service_, cq_, 1);
+
+                    std::string requested_key = request_get.key();
+                    std::string requested_value = request_get.value();
+
+                    put_key_value(requested_key, requested_value);
+
+                    reply_.set_value("Success");
+                    reply_.set_key(requested_key);
                     // i m put service...
                     std::cout<<"put"<<std::endl;
                 }
@@ -128,6 +228,12 @@ private:
                 {
                     new CallDataLRU(service_, cq_, 2);
 
+                    std::string requested_key = request_get.key();
+
+                    delete_key_value(requested_key);
+                    
+                    reply_.set_value("Success");
+                    reply_.set_key(requested_key);
 
                     std::cout<<"del"<<std::endl;
 
